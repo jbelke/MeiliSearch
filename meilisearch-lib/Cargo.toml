@@ -30,6 +30,7 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 meilisearch-error = { path = "../meilisearch-error" }
 meilisearch-tokenizer = { git = "https://github.com/meilisearch/tokenizer.git", tag = "v0.2.5" }
+meilisearch-update-store = { path = "../meilisearch-update-store", optional = true }
 memmap = "0.7.0"
 milli = { git = "https://github.com/meilisearch/milli.git", tag = "v0.17.0"}
 mime = "0.3.16"
@@ -61,3 +62,6 @@ derivative = "2.2.0"
 [dev-dependencies]
 actix-rt = "2.2.0"
 paste = "1.0.5"
+
+[features]
+task-api = ["meilisearch-update-store"]

@@ -1685,6 +1685,7 @@ dependencies = [
  "log",
  "meilisearch-error",
  "meilisearch-tokenizer",
+ "meilisearch-update-store",
  "memmap",
  "milli",
  "mime",
@@ -1729,6 +1730,10 @@ dependencies = [
  "unicode-segmentation",
  "whatlang",
 ]
+
+[[package]]
+name = "meilisearch-update-store"
+version = "0.1.0"
 
 [[package]]
 name = "memchr"
