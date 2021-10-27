@@ -239,7 +239,11 @@ impl Index {
         }
     }
 
-    fn update_documents<'a, 'b>(
+    pub fn update_builder(&self, id: u64) -> UpdateBuilder {
+        self.update_handler.update_builder(id)
+    }
+
+    pub fn update_documents<'a, 'b>(
         &'a self,
         txn: &mut heed::RwTxn<'a, 'b>,
         method: IndexDocumentsMethod,

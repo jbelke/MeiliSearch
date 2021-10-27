@@ -1722,6 +1722,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "heed",
+ "log",
  "serde",
  "tokio",
  "uuid",

@@ -2,12 +2,17 @@ pub mod error;
 mod index_store;
 pub mod uuid_store;
 
+use std::result::Result as StdResult;
 use std::path::Path;
 
+use chrono::Utc;
 use error::{IndexResolverError, Result};
 use index_store::{IndexStore, MapIndexStore};
+use meilisearch_tasks::task::TaskResult;
 use uuid::Uuid;
 use uuid_store::{HeedUuidStore, UuidStore};
+
+use meilisearch_tasks::{TaskPerformer, batch::Batch, task::{DocumentAdditionMergeStrategy, TaskContent, TaskError, TaskEvent}};
 
 use crate::{
     index::{update_handler::UpdateHandler, Index},
@@ -15,6 +20,72 @@ use crate::{
 };
 
 pub type HardStateIndexResolver = IndexResolver<HeedUuidStore, MapIndexStore>;
+
+#[async_trait::async_trait(?Send)]
+impl<U, I> TaskPerformer for IndexResolver<U, I>
+where U: UuidStore,
+      I: IndexStore,
+{
+    type Error = IndexResolverError;
+
+    async fn process(&self, mut batch: Batch) -> StdResult<Batch, Self::Error> {
+        use milli::update::IndexDocumentsMethod;
+        // Until batching is implemented, all batch should contain only one update.
+        debug_assert_eq!(batch.len(), 1);
+
+        let index = self.create_index(batch.index_uid.clone(), None).await?;
+
+        if let Some(task) = batch.tasks.first_mut() {
+            task.events.push(TaskEvent::Processing(Utc::now()));
+
+            let result = match &task.content {
+                TaskContent::DocumentAddition { content_uuid, merge_strategy, primary_key } =>  {
+                    let method = match merge_strategy {
+                        DocumentAdditionMergeStrategy::UpdateDocument => IndexDocumentsMethod::UpdateDocuments,
+                        DocumentAdditionMergeStrategy::ReplaceDocument => IndexDocumentsMethod::ReplaceDocuments,
+                    };
+
+                    let task_id = task.id;
+                    let primary_key = primary_key.clone();
+                    let content_uuid = *content_uuid;
+
+                    tokio::task::spawn_blocking(move || {
+                        let update_builder = index.update_builder(task_id as u64);
+                        let mut txn = index.write_txn()?;
+                        let res = index.update_documents(
+                            &mut txn,
+                            method,
+                            content_uuid,
+                            update_builder,
+                            primary_key.as_deref());
+                        txn.commit()?;
+                        res
+                    }).await?
+                },
+                TaskContent::DocumentDeletion(_) => todo!(),
+                TaskContent::IndexDeletion => todo!(),
+                TaskContent::SettingsUpdate => todo!(),
+            };
+
+            match result {
+                Ok(_success) => {
+                    task.events.push(TaskEvent::Succeded {
+                        result: TaskResult,
+                        timestamp: Utc::now(),
+                    });
+                },
+                Err(_err) => {
+                    task.events.push(TaskEvent::Failed {
+                        error: TaskError,
+                        timestamp: Utc::now(),
+                    })
+                },
+            }
+        }
+
+        Ok(batch)
+    }
+}
 
 pub fn create_index_resolver(
     path: impl AsRef<Path>,
@@ -92,14 +163,22 @@ where
         Ok(indexes)
     }
 
+    /// Get or create an index with name `uid`.
     pub async fn create_index(&self, uid: String, primary_key: Option<String>) -> Result<Index> {
         if !is_index_uid_valid(&uid) {
             return Err(IndexResolverError::BadlyFormatted(uid));
         }
-        let uuid = Uuid::new_v4();
-        let index = self.index_store.create(uuid, primary_key).await?;
-        self.index_uuid_store.insert(uid, uuid).await?;
-        Ok(index)
+
+        match self.get_index(uid).await {
+            Ok(index) => Ok(index),
+            Err(IndexResolverError::UnexistingIndex(uid)) => {
+                let uuid = Uuid::new_v4();
+                let index = self.index_store.create(uuid, primary_key).await?;
+                self.index_uuid_store.insert(uid, uuid).await?;
+                Ok(index)
+            }
+            Err(e) => Err(e)
+        }
     }
 
     pub async fn list(&self) -> Result<Vec<(String, Index)>> {
