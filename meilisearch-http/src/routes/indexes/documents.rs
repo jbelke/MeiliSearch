@@ -78,7 +78,7 @@ pub async fn delete_document(
         .register_update(index_uid, update, false)
         .await?;
     debug!("returns: {:?}", update_status);
-    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status.id() })))
+    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status })))
 }
 
 #[derive(Deserialize, Debug)]
@@ -196,7 +196,7 @@ async fn document_addition(
     let update_status = meilisearch.register_update(index_uid, update, true).await?;
 
     debug!("returns: {:?}", update_status);
-    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status.id() })))
+    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status })))
 }
 
 pub async fn delete_documents(
@@ -219,7 +219,7 @@ pub async fn delete_documents(
         .register_update(path.into_inner().index_uid, update, false)
         .await?;
     debug!("returns: {:?}", update_status);
-    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status.id() })))
+    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status })))
 }
 
 pub async fn clear_all_documents(
@@ -231,5 +231,5 @@ pub async fn clear_all_documents(
         .register_update(path.into_inner().index_uid, update, false)
         .await?;
     debug!("returns: {:?}", update_status);
-    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status.id() })))
+    Ok(HttpResponse::Accepted().json(serde_json::json!({ "updateId": update_status })))
 }

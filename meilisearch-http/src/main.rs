@@ -1,6 +1,7 @@
 use std::env;
 
 use actix_web::HttpServer;
+use env_logger::Env;
 use meilisearch_http::{create_app, setup_meilisearch, Opt};
 use meilisearch_lib::MeiliSearch;
 use structopt::StructOpt;
@@ -14,7 +15,7 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 /// does all the setup before meilisearch is launched
 fn setup(opt: &Opt) -> anyhow::Result<()> {
-    let mut log_builder = env_logger::Builder::new();
+    let mut log_builder = env_logger::Builder::from_env(Env::new());
     log_builder.parse_filters(&opt.log_level);
     if opt.log_level == "info" {
         // if we are in info we only allow the warn log_level for milli
