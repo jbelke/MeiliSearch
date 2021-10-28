@@ -53,7 +53,7 @@ macro_rules! malformed {
     };
 }
 
-pub fn read_csv(input: impl Read, writer: impl Write + Seek) -> Result<()> {
+pub fn read_csv(input: impl Read, writer: impl Write + Seek) -> Result<usize> {
     let mut builder = DocumentBatchBuilder::new(writer).unwrap();
 
     let iter = CsvDocumentIter::from_reader(input)?;
@@ -61,13 +61,14 @@ pub fn read_csv(input: impl Read, writer: impl Write + Seek) -> Result<()> {
         let doc = doc?;
         builder.add_documents(doc).unwrap();
     }
+    let count = builder.len();
     builder.finish().unwrap();
 
-    Ok(())
+    Ok(count)
 }
 
 /// read jsonl from input and write an obkv batch to writer.
-pub fn read_ndjson(input: impl Read, writer: impl Write + Seek) -> Result<()> {
+pub fn read_ndjson(input: impl Read, writer: impl Write + Seek) -> Result<usize> {
     let mut builder = DocumentBatchBuilder::new(writer)?;
     let stream = Deserializer::from_reader(input).into_iter::<Map<String, Value>>();
 
@@ -76,21 +77,24 @@ pub fn read_ndjson(input: impl Read, writer: impl Write + Seek) -> Result<()> {
         builder.add_documents(&value)?;
     }
 
+    let count = builder.len();
     builder.finish()?;
 
-    Ok(())
+    Ok(count)
 }
 
-/// read json from input and write an obkv batch to writer.
-pub fn read_json(input: impl Read, writer: impl Write + Seek) -> Result<()> {
+/// read json from input and write an obkv batch to writer, and returns the number of documents.
+pub fn read_json(input: impl Read, writer: impl Write + Seek) -> Result<usize> {
     let mut builder = DocumentBatchBuilder::new(writer).unwrap();
 
     let documents: Vec<Map<String, Value>> =
         malformed!(PayloadType::Json, serde_json::from_reader(input))?;
     builder.add_documents(documents).unwrap();
+    // TODO: remove when https://github.com/meilisearch/milli/pull/406 is merged
+    let count = builder.len();
     builder.finish().unwrap();
 
-    Ok(())
+    Ok(count)
 }
 
 enum AllowedType {
