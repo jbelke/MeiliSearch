@@ -1618,6 +1618,7 @@ dependencies = [
  "log",
  "meilisearch-error",
  "meilisearch-lib",
+ "meilisearch-tasks",
  "meilisearch-tokenizer",
  "memmap",
  "mime",
